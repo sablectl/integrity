@@ -1,0 +1,64 @@
+{
+  "name": "integrity",
+  "version": "1.0.0",
+  "description": "Integrity — File Integrity Monitoring Toolkit. Cryptographic baselines, change verification, and directory monitoring for the command line.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Sable <355646062+sablectl@users.noreply.github.com>",
+  "homepage": "https://github.com/sablectl/integrity#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sablectl/integrity.git"
+  },
+  "bugs": {
+    "url": "https://github.com/sablectl/integrity/issues"
+  },
+  "keywords": [
+    "file-integrity",
+    "fim",
+    "sha256",
+    "baseline",
+    "monitoring",
+    "security",
+    "cli",
+    "typescript"
+  ],
+  "bin": {
+    "integrity": "./dist/bin/integrity.js"
+  },
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run --project unit",
+    "test:integration": "vitest run --project integration",
+    "test:watch": "vitest --project unit",
+    "bench": "node scripts/benchmark.mjs",
+    "verify": "npm run check && npm run lint && npm run format:check && npm run test && npm run test:integration && npm run build"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.0",
+    "@types/node": "^24.10.1",
+    "eslint": "^9.39.0",
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.72.2",
+    "vitest": "^5.1.0"
+  }
+}

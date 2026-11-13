@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: quality (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20.19.x', '22.x', '24.x']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm test
+      - run: npm run build
+      - run: npm run test:integration
+      - name: Smoke test the built binary
+        run: |
+          set -eu
+          node dist/bin/integrity.js --version
+          node dist/bin/integrity.js --help
+          work="$(mktemp -d)"
+          printf 'original\n' > "$work/file.txt"
+          node dist/bin/integrity.js scan "$work"
+          node dist/bin/integrity.js verify "$work"
+          printf 'tampered\n' > "$work/file.txt"
+          # Exit code 1 means drift was detected, which is the expected
+          # outcome here; anything else is a failure worth stopping for.
+          if node dist/bin/integrity.js verify "$work"; then
+            echo "Expected a non-zero exit after tampering." >&2
+            exit 1
+          fi
+
+  audit:
+    name: dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: npm
+      - run: npm ci
+      # The package ships with no runtime dependencies, so a production
+      # audit covers exactly what an installed copy would expose.
+      - run: npm audit --omit=dev --audit-level=low
+
+  secrets:
+    name: secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      # The pinned container scans the whole history directly, which behaves
+      # identically on a first push and on a pull request, unlike an action
+      # that infers a base and head from the event.
+      - name: Scan full history for verified secrets
+        run: |
+          set -eu
+          docker run --rm -v "$PWD:/repo:ro" \
+            ghcr.io/trufflesecurity/trufflehog:3.90.8 \
+            git file:///repo --results=verified --fail --no-update
