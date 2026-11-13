@@ -208,6 +208,7 @@ above.
 - [Baseline format](docs/baseline-format.md)
 - [Architecture](docs/architecture.md)
 - [Security model](docs/security-model.md)
+- [Technical debt](docs/technical-debt.md)
 - [Changelog](CHANGELOG.md)
 - [Contributing](CONTRIBUTING.md)
 
