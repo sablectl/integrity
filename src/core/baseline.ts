@@ -14,7 +14,7 @@
  * file that would make the next verification meaningless.
  */
 import { constants as fsConstants } from 'node:fs';
-import { mkdir, open, readFile, rename, unlink } from 'node:fs/promises';
+import { mkdir, open, rename, unlink } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { BaselineError, IoError, describeError, errorCode } from './errors.js';
@@ -145,8 +145,24 @@ export async function readBaseline(filePath: string): Promise<Baseline> {
   const target = resolve(filePath);
   let raw: string;
   try {
-    raw = await readFile(target, 'utf8');
+    // The size is taken from the same descriptor the contents are read
+    // from, and checked before a single byte is allocated: an implausibly
+    // large baseline must not be able to exhaust memory on the way to
+    // being refused.
+    const handle = await open(target, fsConstants.O_RDONLY);
+    try {
+      const stats = await handle.stat({ bigint: false });
+      if (stats.size > MAX_BASELINE_BYTES) {
+        throw new BaselineError(
+          `Baseline ${target} is implausibly large; refusing to parse.`,
+        );
+      }
+      raw = await handle.readFile('utf8');
+    } finally {
+      await handle.close();
+    }
   } catch (error) {
+    if (error instanceof BaselineError) throw error;
     if (errorCode(error) === 'ENOENT') {
       throw new BaselineError(`No baseline at ${target}.`, [
         'Create one with: integrity scan <directory>',

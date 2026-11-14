@@ -1,7 +1,8 @@
-import { readFile, stat, writeFile } from 'node:fs/promises';
+import { readFile, stat, truncate, writeFile } from 'node:fs/promises';
 import { describe, expect, it, afterEach } from 'vitest';
 import {
   BASELINE_FILE_MODE,
+  MAX_BASELINE_BYTES,
   buildBaseline,
   parseBaseline,
   readBaseline,
@@ -220,6 +221,18 @@ describe('reading untrusted baselines', () => {
     expectProblem(
       () => validateBaseline(JSON.parse(JSON.stringify(duplicated))),
       /duplicate path/,
+    );
+  });
+
+  it('refuses an oversize baseline on its size, without reading it', async () => {
+    tree = await makeTempTree();
+    const target = await tree.file('huge.json', '{}');
+    // Sparse: the file is larger than the limit but occupies no space, so
+    // the refusal can only come from the size check, not from the read.
+    await truncate(target, MAX_BASELINE_BYTES + 1);
+
+    await expect(readBaseline(target)).rejects.toThrow(
+      /implausibly large; refusing to parse/,
     );
   });
 
