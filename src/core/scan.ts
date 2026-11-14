@@ -213,6 +213,7 @@ export async function scanDirectory(options: ScanOptions): Promise<ScanResult> {
       try {
         const digest = await hashFile(file.absolutePath, {
           maxBytes: resolved.maxFileSizeBytes,
+          followSymlinks: resolved.followSymlinks,
           ...(signal ? { signal } : {}),
         });
         entries.push({
@@ -237,6 +238,15 @@ export async function scanDirectory(options: ScanOptions): Promise<ScanResult> {
             path: file.relativePath,
             reason: 'too-large',
             message: error.message,
+          });
+        } else if (errorCode(error) === 'ELOOP') {
+          // The entry was a regular file when the directory was listed and
+          // is a symlink now. The open refused to follow it, and the
+          // replacement is reported rather than hashed.
+          skipped.push({
+            path: file.relativePath,
+            reason: 'symlink',
+            message: 'Path became a symlink during the scan; not followed.',
           });
         } else if (errorCode(error) === 'ENOENT') {
           // The file vanished between listing and hashing. That is a real

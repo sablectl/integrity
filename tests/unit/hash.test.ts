@@ -91,6 +91,19 @@ describe('hashFile limits and refusals', () => {
     await expect(hashFile(path)).rejects.toBeInstanceOf(NotARegularFileError);
   });
 
+  it('does not follow a symlink planted where a regular file was', async () => {
+    tree = await makeTempTree();
+    const secret = await tree.file('secret.txt', 'secret');
+    // The scan listed a regular file; by the time it is opened the name
+    // points somewhere else.
+    const path = await tree.link('swapped.txt', secret);
+
+    await expect(hashFile(path)).rejects.toMatchObject({ code: 'ELOOP' });
+    await expect(
+      hashFile(path, { followSymlinks: true }),
+    ).resolves.toMatchObject({ sha256: hashText('secret') });
+  });
+
   it('rejects rather than returning a partial digest when aborted', async () => {
     tree = await makeTempTree();
     const path = await tree.file('abort.bin', randomBytes(4 * 1024 * 1024));

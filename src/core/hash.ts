@@ -8,6 +8,7 @@
  * still describe the bytes that were actually hashed.
  */
 import { createHash } from 'node:crypto';
+import { constants as fsConstants } from 'node:fs';
 import { open } from 'node:fs/promises';
 import type { FileHandle } from 'node:fs/promises';
 
@@ -61,14 +62,21 @@ export interface HashFileOptions {
    * to any more.
    */
   readonly signal?: AbortSignal;
+  /**
+   * When false (the default), the file is opened with `O_NOFOLLOW`, so a
+   * symlink planted between listing and opening is refused instead of
+   * followed.
+   */
+  readonly followSymlinks?: boolean;
 }
 
 /**
  * Hashes a regular file and returns its digest together with the metadata
  * read from the same descriptor.
  *
- * Opened with `O_NOFOLLOW`-equivalent behaviour by the caller: traversal
- * decides whether a symlink is followed, and only hands real file paths here.
+ * Unless `followSymlinks` is set, the file is opened with `O_NOFOLLOW`:
+ * traversal decides whether a symlink is followed, and a path that turned
+ * into a symlink after it was listed fails to open rather than being read.
  */
 export async function hashFile(
   filePath: string,
@@ -84,7 +92,12 @@ export async function hashFile(
   if (cancelled()) throw new HashCancelledError();
   let handle: FileHandle | undefined;
   try {
-    handle = await open(filePath, 'r');
+    handle = await open(
+      filePath,
+      options.followSymlinks === true
+        ? fsConstants.O_RDONLY
+        : fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW,
+    );
     const stats = await handle.stat({ bigint: false });
     if (!stats.isFile()) {
       throw new NotARegularFileError();
