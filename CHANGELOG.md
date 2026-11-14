@@ -5,6 +5,24 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Security
+
+- The baseline size limit is now enforced before the file is read into memory.
+  The whole file was previously loaded and only then compared against
+  `MAX_BASELINE_BYTES`, so an implausibly large baseline was a
+  memory-exhaustion primitive.
+- Files are opened with `O_NOFOLLOW` while hashing unless symlinks are
+  explicitly followed, closing the window in which a regular file is replaced
+  by a symbolic link between directory listing and open. A path that becomes a
+  link during a scan is recorded as skipped rather than followed.
+
+### Changed
+
+- `minimatch` is pinned to `^11.0.1` through an override, resolving a moderate
+  advisory reached through the ESLint toolchain. Development dependencies only.
+
 ## [1.0.0] - 2025-11-13
 
 Initial release.
